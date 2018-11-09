@@ -1,0 +1,7 @@
+<?xml version="1.0" ?>
+<MDDoc>
+   <AnacondaPath01>H:/ProgramFiles/Anaconda2/envs/env_test01/Library/bin</AnacondaPath01>
+   <AnacondaPath02>H:/ProgramFiles/Anaconda2/envs/env_test01/Library</AnacondaPath02>
+   <UIPath>H:/cloud/cloud_data/Projects/MDDoc/qt/MDDoc_V04.ui</UIPath>
+   <YMLPath>H:/cloud/cloud_data/Projects/MDDoc/data/doc/REFT/mkdocs.yml</YMLPath>
+</MDDoc>
