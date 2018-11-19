@@ -25,6 +25,7 @@ class Param:
         self.params['AnacondaPath02']=self.doc.getElementsByTagName('AnacondaPath02')[0].childNodes[0].data
         self.params['UIPath']=self.doc.getElementsByTagName('UIPath')[0].childNodes[0].data
         self.params['YMLPath']=self.doc.getElementsByTagName('YMLPath')[0].childNodes[0].data
+        self.params['ParamsRestartPath']=self.doc.getElementsByTagName('ParamsRestartPath')[0].childNodes[0].data
         
     def printParams(self):
         # Print parameters
@@ -63,6 +64,12 @@ class Param:
         reft.appendChild(YMLPathPath)
         YMLPathPath.appendChild(self.doc.createTextNode('H:/cloud/cloud_data/Projects/MDDoc/data/doc/REFT/mkdocs.yml'))
         self.params['YMLPath']=YMLPathPath.childNodes[0].data
+        
+        # Create parameter ParamsRestartPath
+        ParamsRestartPath = self.doc.createElement('ParamsRestartPath')
+        reft.appendChild(ParamsRestartPath)
+        ParamsRestartPath.appendChild(self.doc.createTextNode('H:/cloud/cloud_data/Projects/MDDoc/data/doc/REFT/ParamsRestart.yml'))
+        self.params['ParamsRestartPath']=ParamsRestartPath.childNodes[0].data
 
     def write(self):
         # Write params to xml file

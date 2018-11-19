@@ -6,7 +6,7 @@ import os
 from PyQt5 import QtCore, QtGui, QtWidgets
 from PyQt5.QtCore import pyqtSlot
 from PyQt5 import QtCore, QtGui, QtWidgets
-from PyQt5.QtWidgets import QWidget, QCheckBox, QApplication, QMainWindow, QFileDialog, QTableView
+from PyQt5.QtWidgets import QWidget, QCheckBox, QApplication, QMainWindow, QFileDialog, QTableView, QMessageBox
 from PyQt5.uic import loadUi
 import time
 import string
@@ -26,7 +26,7 @@ import Param
 
 import threading
 from shutil import copyfile, rmtree
-
+from YAML import YAML
 #param = Param('H:/cloud/cloud_data/Projects/MDDoc/init/init.xml')
 #param.read()
 
@@ -43,22 +43,32 @@ class MDDocGUI(QMainWindow):
     milling = None
     doc = MDDoc()
     httpd = None
+    doc_exist = False
+    doc_open = False
+    thread_server = None
+    yaml = YAML()
+    paramsRestart = dict()   
+    ui = None
     
     def __init__(self):
         # Init GUI  
         print('test')
         Param.param.read()
         Param.param.printParams()
-        
         self.params=Param.param.params;
+        
+        
         print('UIPath: ', self.params['UIPath'])
         UIPath = self.params['UIPath']
         super(MDDocGUI,self).__init__()
         
-        loadUi(UIPath, self)
+        self.ui = loadUi(UIPath, self)
         self.setWindowTitle('MDDoc')
         
-        #self.doc = MDDoc()
+        # Init parameter
+        self.paramsRestart = self.yaml.load(self.params['ParamsRestartPath'])
+        self.SourceFolder.setText(self.paramsRestart['SourceFolder'])
+        self.DestinationFolder.setText(self.paramsRestart['DestinationFolder'])
         
         # Set callback functions
         self.CreateDocButton.clicked.connect(self.on_CreateDocButton)
@@ -68,6 +78,23 @@ class MDDocGUI(QMainWindow):
         
         self.OpenDocButton.clicked.connect(self.on_OpenDocButton)
         self.CloseDocButton.clicked.connect(self.on_CloseDocButton)
+        
+        
+        self.SourceFolder.textChanged.connect(self.on_textChanged_SourceFolder)
+        self.DestinationFolder.textChanged.connect(self.on_textChanged_DestinationFolder)
+        
+        SourceFolder = self.SourceFolder.text()
+        DestinationFolder = self.DestinationFolder.text()
+        self.doc_exist = os.path.isfile(DestinationFolder + '/index.html')
+        
+        if (not os.path.isdir(SourceFolder)) or (not os.path.isdir(DestinationFolder)):
+            self.CreateDocButton.setEnabled(False)
+            
+        self.OpenDocButton.setEnabled(self.doc_exist)
+        self.CloseDocButton.setEnabled(self.doc_open)
+        
+        #self.ui.btnExit.clicked.connect(self.close)
+        #self.ui.actionExit.triggered.connect(self.close)
         
         #self.milling = Milling.Milling('milling', self.params['DatabaseSQLitePath'])
         #reload(DrawingClass)
@@ -83,6 +110,19 @@ class MDDocGUI(QMainWindow):
         #self.CreateMillingButton.clicked.connect(self.on_clicked_CreateMillingButton)
         #self.OrdersMillingTable.clicked.connect(self.on_clicked_OrdersMillingTable)    
     
+    def closeEvent(self, event):
+        print("event")
+        reply = QtWidgets.QMessageBox.question(self, 'Message',
+            "Are you sure to quit?", QtWidgets.QMessageBox.Yes, QtWidgets.QMessageBox.No)
+
+        if reply == QtWidgets.QMessageBox.Yes:         
+            self.paramsRestart['SourceFolder'] = self.SourceFolder.text()
+            self.paramsRestart['DestinationFolder'] = self.DestinationFolder.text()
+            self.yaml.save(self.paramsRestart, self.params['ParamsRestartPath'])
+            event.accept()
+        else:
+            event.ignore()
+            
     def serverfunc(self, DestinationFolder):
         os.chdir(DestinationFolder)      
         PORT = 8000
@@ -90,22 +130,55 @@ class MDDocGUI(QMainWindow):
         with socketserver.TCPServer(("", PORT), Handler) as self.httpd:
             self.httpd.serve_forever()
             self.StatusLine.append('Closing server')
+            
+    @pyqtSlot()
+    def on_textChanged_SourceFolder(self):
+        SourceFolder = self.SourceFolder.text()
+        DestinationFolder = self.DestinationFolder.text()
+        if (not os.path.isdir(SourceFolder)) or (not os.path.isdir(DestinationFolder)):
+            self.CreateDocButton.setEnabled(False)
+        else:
+            self.CreateDocButton.setEnabled(True)
+        
+    @pyqtSlot()
+    def on_textChanged_DestinationFolder(self):
+        SourceFolder = self.SourceFolder.text()
+        DestinationFolder = self.DestinationFolder.text()
+        if (not os.path.isdir(SourceFolder)) or (not os.path.isdir(DestinationFolder)):
+            self.CreateDocButton.setEnabled(False)
+        else:
+            self.CreateDocButton.setEnabled(True)
+        self.doc_exist = os.path.isfile(DestinationFolder + '/index.html')
+        self.OpenDocButton.setEnabled(self.doc_exist)
+
         
     @pyqtSlot()
     def on_CloseDocButton(self):
         print('on_CloseDocButton')
         self.httpd.shutdown()
+        self.thread_server.join()
+        #self.thread_server._stop()
+        DestinationFolder = self.DestinationFolder.text()
+        self.doc_exist = os.path.isfile(DestinationFolder + '/index.html')
+        self.OpenDocButton.setEnabled(self.doc_exist)
+        self.doc_open = False
+        self.CloseDocButton.setEnabled(self.doc_open)
         
     @pyqtSlot()
     def on_OpenDocButton(self):             
         DestinationFolder = self.DestinationFolder.text()
         if os.path.isdir(DestinationFolder):
             call(["C:/Program Files/Mozilla Firefox/firefox.exe", "-new-window", "http://127.0.0.1:8000/"])  
-            t = threading.Thread(target=self.serverfunc,args=[self.DestinationFolder.text()])
-            t.start()
+            self.thread_server = threading.Thread(target=self.serverfunc,args=[self.DestinationFolder.text()])
+            self.thread_server.start()
             self.StatusLine.append('Opening server')
+            self.doc_open = True
+            self.CloseDocButton.setEnabled(self.doc_open)
+            self.OpenDocButton.setEnabled(not self.doc_open)
         else:
             self.StatusLine.append('Destination folder not found!')
+            self.doc_open = False
+            self.CloseDocButton.setEnabled(self.doc_open)
 
     @pyqtSlot()
     def on_SourceButton(self):        
@@ -128,7 +201,7 @@ class MDDocGUI(QMainWindow):
                 self.StatusLine.append("Target folder is not defined!")
                 return
             YMlFilepath = self.params['YMLPath']
-            self.doc.createMKDocs(sourceFolder, destinationFolder, YMlFilepath)
+            created = self.doc.createMKDocs(sourceFolder, destinationFolder, YMlFilepath)
         else:
             # Extract markdown files and copy in tmp folder
             sourceFolder = self.SourceFolder.text()
@@ -156,11 +229,19 @@ class MDDocGUI(QMainWindow):
             sourceFolder = dir_path + "\\tmp"
             destinationFolder = self.DestinationFolder.text()
             YMlFilepath = self.params['YMLPath']
-            self.doc.createMKDocs(tmp_path, destinationFolder, YMlFilepath) 
+            created = self.doc.createMKDocs(tmp_path, destinationFolder, YMlFilepath) 
             
             # Delete tmp folder
             if os.path.exists(tmp_path) and os.path.isdir(tmp_path):
                 rmtree(tmp_path)
+        if created:
+            self.StatusLine.append("Documentation creation succeeded.")
+            self.doc_exist = True
+            self.OpenDocButton.setEnabled(True)
+        else:
+            self.StatusLine.append("Documentation creation failed.")
+            self.doc_exist = False
+            self.OpenDocButton.setEnabled(False)
         
     #@pyqtSlot()
     def on_clicked_OrdersMillingTable(self, signal):
@@ -241,6 +322,7 @@ def startGUI():
     app = QApplication(sys.argv)
     widget = MDDocGUI()
     widget.show();
+    app.aboutToQuit.connect(app.deleteLater)
     sys.exit(app.exec_())
     
 def main():

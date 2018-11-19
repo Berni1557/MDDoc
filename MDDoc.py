@@ -206,7 +206,8 @@ class MDDoc:
         
     def loadVariables(self, filepath=None):  
         if filepath is None:
-            current_dir = os.path.dirname(os.path.realpath(__file__))
+            current_dir = os.path.dirname(os.path.abspath(__file__))
+            print('current_dir', current_dir)
             filepath=current_dir + "\\variables.xml"      
         self.xml.load(filepath)
         self.variables = self.xml.Vmap
@@ -342,6 +343,8 @@ class MDDoc:
         print('destinationFolder1',site)
         print(os.path.isdir(destinationFolder))
         call(["mkdocs", "build", config])
+        return os.path.isfile(destinationFolder + '/index.html')
+            
         #mkdocs build --config-file=H:/cloud/cloud_data/Projects/MDDoc/data/doc/REFT/mkdocs.yml
         #call(["mkdocs", "build", "--config-file=H:/cloud/cloud_data/Projects/MDDoc/data/doc/REFT/mkdocs.yml", "--site_dir==H:/cloud/cloud_data/Projects/MDDoc/data/doc/REFT/site2"])
 
